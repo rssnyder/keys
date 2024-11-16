@@ -54,7 +54,7 @@ func main() {
 			log.Printf("nil key requested: %s\n", key)
 			c.AbortWithStatus(204)
 		case nil:
-			c.String(http.StatusOK, "%s\n", value)
+			c.String(http.StatusOK, "%s", value)
 		default:
 			log.Println(err)
 		}
@@ -84,7 +84,7 @@ func main() {
 				c.AbortWithStatus(500)
 			}
 		} else {
-			c.String(http.StatusOK, "%s\n", value)
+			c.String(http.StatusOK, "%s", value)
 		}
 	})
 

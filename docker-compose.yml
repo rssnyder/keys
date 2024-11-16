@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      - POSTGRES_DB=keys
+      - POSTGRES_USER=keys
+      - POSTGRES_PASSWORD=keys
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keys"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  keys:
+    build: ./
+    ports:
+      - $PORT:8080
+      - 3948:8080
+    environment:
+      - PG_DB=keys
+      - PG_USER=keys
+      - PG_PASSWORD=keys
+    depends_on:
+      postgres:
+        condition: service_healthy
