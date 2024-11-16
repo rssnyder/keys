@@ -19,7 +19,10 @@ func TestNilKey(t *testing.T) {
 
 	client := &http.Client{}
 	req, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:3948/%d", key), nil)
-	resp, _ := client.Do(req)
+	resp, err := client.Do(req)
+	if err != nil {
+		fmt.Printf("%s\n", err)
+	}
 	respData, _ := io.ReadAll(resp.Body)
 
 	assert.Equal(t, 204, resp.StatusCode)
