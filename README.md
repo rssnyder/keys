@@ -12,6 +12,12 @@ curl https://keys.rileysnyder.dev/foo
 curl -d 'bar' https://keys.rileysnyder.dev/foo
 ```
 
+you can also create random keys
+
+```
+curl -d 'bar' https://keys.rileysnyder.dev
+```
+
 ## development notes
 
 1. test with `make test`

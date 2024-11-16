@@ -17,8 +17,8 @@ var (
 
 func TestNilKey(t *testing.T) {
 
-	req, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:3948/%d", key), nil)
 	client := &http.Client{}
+	req, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:3948/%d", key), nil)
 	resp, _ := client.Do(req)
 	respData, _ := io.ReadAll(resp.Body)
 
@@ -28,22 +28,60 @@ func TestNilKey(t *testing.T) {
 
 func TestNewNamedKey(t *testing.T) {
 
-	req, _ := http.NewRequest("POST", fmt.Sprintf("http://localhost:3948/%d", key), strings.NewReader("bar"))
+	value := "foo"
+
 	client := &http.Client{}
+	req, _ := http.NewRequest("POST", fmt.Sprintf("http://localhost:3948/%d", key), strings.NewReader(value))
 	resp, _ := client.Do(req)
 	respData, _ := io.ReadAll(resp.Body)
 
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Equal(t, "bar", string(respData))
+	assert.Equal(t, value, string(respData))
+
+	req, _ = http.NewRequest("GET", fmt.Sprintf("http://localhost:3948/%d", key), nil)
+	resp, _ = client.Do(req)
+	respData, _ = io.ReadAll(resp.Body)
+
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, value, string(respData))
 }
 
-func TestGetNewNamedlKey(t *testing.T) {
+func TestDupKey(t *testing.T) {
 
-	req, _ := http.NewRequest("GET", fmt.Sprintf("http://localhost:3948/%d", key), strings.NewReader("bar"))
+	value := "bar"
+
 	client := &http.Client{}
+	req, _ := http.NewRequest("POST", fmt.Sprintf("http://localhost:3948/%d", key), strings.NewReader(value))
+	resp, _ := client.Do(req)
+	respData, _ := io.ReadAll(resp.Body)
+
+	assert.Equal(t, 409, resp.StatusCode)
+
+	req, _ = http.NewRequest("GET", fmt.Sprintf("http://localhost:3948/%d", key), nil)
+	resp, _ = client.Do(req)
+	respData, _ = io.ReadAll(resp.Body)
+
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.NotEqual(t, value, string(respData))
+}
+
+func TestNewRandomKey(t *testing.T) {
+
+	value := "foobar"
+	key := generateKey(value)
+
+	client := &http.Client{}
+	req, _ := http.NewRequest("POST", "http://localhost:3948", strings.NewReader(value))
 	resp, _ := client.Do(req)
 	respData, _ := io.ReadAll(resp.Body)
 
 	assert.Equal(t, 200, resp.StatusCode)
-	assert.Equal(t, "bar", string(respData))
+	assert.Equal(t, key, string(respData))
+
+	req, _ = http.NewRequest("GET", fmt.Sprintf("http://localhost:3948/%s", string(respData)), nil)
+	resp, _ = client.Do(req)
+	respData, _ = io.ReadAll(resp.Body)
+
+	assert.Equal(t, 200, resp.StatusCode)
+	assert.Equal(t, value, string(respData))
 }

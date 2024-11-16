@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"io"
@@ -60,6 +61,35 @@ func main() {
 		}
 	})
 
+	r.POST("/", func(c *gin.Context) {
+		var value string
+
+		bytes, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			log.Println(err)
+		}
+		value = string(bytes)
+
+		key := generateKey(value)
+
+		err = db.QueryRow(putKey, key, value).Scan(&value)
+		if err != nil {
+			if err, ok := err.(*pq.Error); ok {
+				switch err.Code.Name() {
+				case "unique_violation":
+					c.AbortWithStatus(409)
+				default:
+					log.Println(err.Code.Name())
+				}
+			} else {
+				log.Println(err)
+				c.AbortWithStatus(500)
+			}
+		} else {
+			c.String(http.StatusOK, "%s", key)
+		}
+	})
+
 	r.POST("/:key", func(c *gin.Context) {
 		var value string
 
@@ -69,8 +99,9 @@ func main() {
 		if err != nil {
 			log.Println(err)
 		}
+		value = string(bytes)
 
-		err = db.QueryRow(putKey, key, string(bytes)).Scan(&value)
+		err = db.QueryRow(putKey, key, value).Scan(&value)
 		if err != nil {
 			if err, ok := err.(*pq.Error); ok {
 				switch err.Code.Name() {
@@ -96,4 +127,13 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func generateKey(value string) string {
+	h := sha256.New()
+	h.Write([]byte(value))
+	hashBytes := h.Sum(nil)
+	hashString := fmt.Sprintf("%x", hashBytes)
+
+	return hashString
 }

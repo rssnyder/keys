@@ -20,7 +20,6 @@ services:
     build: ./
     ports:
       - $PORT:8080
-      - 3948:8080
     environment:
       - PG_DB=keys
       - PG_USER=keys

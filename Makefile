@@ -1,4 +1,4 @@
 test:
 	docker compose rm -fsv
-	docker compose up --build -d
+	PORT=3948 docker compose up --build -d
 	go test
