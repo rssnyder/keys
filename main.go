@@ -15,8 +15,9 @@ import (
 )
 
 const (
-	getKey = `SELECT value FROM keys WHERE key=$1 LIMIT 1;`
-	putKey = `INSERT INTO keys(key,value) values($1,$2) RETURNING value;`
+	createTable = `CREATE TABLE IF NOT EXISTS  keys (key VARCHAR NOT NULL PRIMARY KEY, value TEXT NOT NULL);`
+	getKey      = `SELECT value FROM keys WHERE key=$1 LIMIT 1;`
+	putKey      = `INSERT INTO keys(key,value) values($1,$2) RETURNING value;`
 )
 
 func main() {
@@ -41,6 +42,11 @@ func main() {
 		return url
 	}
 	p.Use(r)
+
+	err = pgBootstrap(db)
+	if err != nil {
+		log.Println(err)
+	}
 
 	r.GET("/:key", func(c *gin.Context) {
 		var value string
@@ -96,4 +102,9 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func pgBootstrap(db *sql.DB) (err error) {
+	_, err = db.Exec(createTable)
+	return
 }
