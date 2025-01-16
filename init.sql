@@ -1,4 +1,0 @@
-CREATE TABLE keys (
-  key VARCHAR NOT NULL PRIMARY KEY,
-  value TEXT NOT NULL 
-);

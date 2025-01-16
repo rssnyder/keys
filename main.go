@@ -14,12 +14,7 @@ import (
 	"github.com/lib/pq"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
 
-  "github.com/rssnyder/keys/db"
-
 	"github.com/rssnyder/keys/db"
-
-const (
-	createTable = `CREATE TABLE IF NOT EXISTS  keys (key VARCHAR NOT NULL PRIMARY KEY, value TEXT NOT NULL);`
 )
 
 type Keys struct {
@@ -38,8 +33,8 @@ func main() {
 	keys := &Keys{
 		Database: &db.Database{dbConn},
 	}
-  
-  err = pgBootstrap(dbConn)
+
+	err = keys.Database.Bootstrap()
 	if err != nil {
 		log.Println(err)
 	}
@@ -163,9 +158,4 @@ func generateKey(value string) (hashString string) {
 	hashString = fmt.Sprintf("%x", hashBytes)
 
 	return
-}
-
-func pgBootstrap(db *sql.DB) (err error) {
-	_, err = db.Exec(createTable)
-  return
 }

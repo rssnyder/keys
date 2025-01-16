@@ -2,11 +2,18 @@ package db
 
 import (
 	"database/sql"
-	"fmt"
 )
 
 type Database struct {
 	*sql.DB
+}
+
+func (db *Database) Bootstrap() (err error) {
+	stmt := `CREATE TABLE IF NOT EXISTS  keys (key VARCHAR NOT NULL PRIMARY KEY, value TEXT NOT NULL);`
+
+	_, err = db.Exec(stmt)
+
+	return
 }
 
 func (db *Database) GetValue(key string) (value string, err error) {
