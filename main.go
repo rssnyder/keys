@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"database/sql"
 	"fmt"
 	"io"
@@ -12,20 +13,30 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
 	ginprometheus "github.com/zsais/go-gin-prometheus"
+
+	"github.com/rssnyder/keys/db"
 )
 
-const (
-	createTable = `CREATE TABLE IF NOT EXISTS  keys (key VARCHAR NOT NULL PRIMARY KEY, value TEXT NOT NULL);`
-	getKey      = `SELECT value FROM keys WHERE key=$1 LIMIT 1;`
-	putKey      = `INSERT INTO keys(key,value) values($1,$2) RETURNING value;`
-)
+type Keys struct {
+	Database *db.Database
+}
 
 func main() {
 
 	connStr := fmt.Sprintf("host=%s user=%s password=%s dbname=%s sslmode=disable", getEnv("PG_HOST", "postgres"), getEnv("PG_USER", "postgres"), getEnv("PG_PASSWORD", "postgres"), getEnv("PG_DB", "postgres"))
-	db, err := sql.Open("postgres", connStr)
+	dbConn, err := sql.Open("postgres", connStr)
 	if err != nil {
 		log.Fatal(err)
+	}
+	// defer dbConn.Close()
+
+	keys := &Keys{
+		Database: &db.Database{dbConn},
+	}
+
+	err = keys.Database.Bootstrap()
+	if err != nil {
+		log.Println(err)
 	}
 
 	r := gin.Default()
@@ -43,58 +54,94 @@ func main() {
 	}
 	p.Use(r)
 
-	err = pgBootstrap(db)
-	if err != nil {
-		log.Println(err)
-	}
+	r = keys.getValue(r)
+	r = keys.SetValue(r)
+	r = keys.SetKey(r)
 
+	r.Run()
+}
+
+func (k *Keys) getValue(r *gin.Engine) *gin.Engine {
 	r.GET("/:key", func(c *gin.Context) {
-		var value string
-
 		key := c.Param("key")
 
-		row := db.QueryRow(getKey, key)
+		value, err := k.Database.GetValue(key)
 
-		switch err := row.Scan(&value); err {
+		switch err {
 		case sql.ErrNoRows:
-			log.Printf("nil key requested: %s\n", key)
-			c.AbortWithStatus(204)
+			c.AbortWithStatus(http.StatusNoContent)
 		case nil:
-			c.String(http.StatusOK, "%s\n", value)
+			c.String(http.StatusOK, "%s", value)
 		default:
 			log.Println(err)
+			c.AbortWithStatus(http.StatusInternalServerError)
 		}
 	})
 
-	r.POST("/:key", func(c *gin.Context) {
-		var value string
+	return r
+}
 
+func (k *Keys) SetValue(r *gin.Engine) *gin.Engine {
+	r.POST("/", func(c *gin.Context) {
+		bytes, err := io.ReadAll(c.Request.Body)
+		if err != nil {
+			log.Println(err)
+			c.AbortWithStatus(http.StatusInternalServerError)
+		}
+		value := string(bytes)
+
+		key := generateKey(value)
+
+		_, err = k.Database.SetKey(key, value)
+		if err != nil {
+			if err, ok := err.(*pq.Error); ok {
+				switch err.Code.Name() {
+				case "unique_violation":
+					c.AbortWithStatus(http.StatusConflict)
+				default:
+					log.Println(err.Code.Name())
+				}
+			} else {
+				log.Println(err)
+				c.AbortWithStatus(http.StatusInternalServerError)
+			}
+		} else {
+			c.String(http.StatusOK, "%s", key)
+		}
+	})
+
+	return r
+}
+
+func (k *Keys) SetKey(r *gin.Engine) *gin.Engine {
+	r.POST("/:key", func(c *gin.Context) {
 		key := c.Param("key")
 
 		bytes, err := io.ReadAll(c.Request.Body)
 		if err != nil {
 			log.Println(err)
 		}
+		value := string(bytes)
 
-		err = db.QueryRow(putKey, key, string(bytes)).Scan(&value)
+		_, err = k.Database.SetKey(key, value)
 		if err != nil {
 			if err, ok := err.(*pq.Error); ok {
 				switch err.Code.Name() {
 				case "unique_violation":
-					c.AbortWithStatus(409)
+					c.AbortWithStatus(http.StatusConflict)
 				default:
 					log.Println(err.Code.Name())
 				}
 			} else {
 				log.Println(err)
-				c.AbortWithStatus(500)
+				c.AbortWithStatus(http.StatusInternalServerError)
 			}
 		} else {
-			c.String(http.StatusOK, "%s\n", value)
+			c.String(http.StatusOK, "%s", value)
 		}
 	})
 
-	r.Run()
+	return r
 }
 
 func getEnv(key, fallback string) string {
@@ -104,7 +151,11 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func pgBootstrap(db *sql.DB) (err error) {
-	_, err = db.Exec(createTable)
+func generateKey(value string) (hashString string) {
+	h := sha256.New()
+	h.Write([]byte(value))
+	hashBytes := h.Sum(nil)
+	hashString = fmt.Sprintf("%x", hashBytes)
+
 	return
 }
