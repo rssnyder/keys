@@ -1,0 +1,21 @@
+databaseChangeLog:
+- changeSet:
+    id: 1741117668915-1
+    author: root (generated)
+    changes:
+    - createTable:
+        columns:
+        - column:
+            constraints:
+              nullable: false
+              primaryKey: true
+              primaryKeyName: keys_pkey
+            name: key
+            type: VARCHAR
+        - column:
+            constraints:
+              nullable: false
+            name: value
+            type: TEXT
+        schemaName: public
+        tableName: keys
